@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/aaronellington/environment-go/environment"
 	"github.com/aaronellington/static-web-server/sws"
@@ -40,7 +41,11 @@ func main() {
 	)
 
 	server := &http.Server{
-		Addr: fmt.Sprintf("%s:%d", config.Host, config.Port),
+		ReadTimeout:       time.Second * 1,
+		WriteTimeout:      time.Second * 1,
+		IdleTimeout:       time.Second * 30,
+		ReadHeaderTimeout: time.Second * 2,
+		Addr:              fmt.Sprintf("%s:%d", config.Host, config.Port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("HTTP Request: %s %s", r.Method, r.URL.Path)
 			s.ServeHTTP(w, r)

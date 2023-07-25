@@ -38,12 +38,14 @@ func SetNotFoundFile(notFoundFile string, statusCode int) configOption {
 			file, err := s.httpFileSystem.Open(notFoundFile)
 			if err != nil {
 				http.NotFound(w, r)
+
 				return
 			}
 
 			fileStats, err := file.Stat()
 			if err != nil {
 				http.NotFound(w, r)
+
 				return
 			}
 
