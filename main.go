@@ -20,7 +20,7 @@ type Config struct {
 }
 
 func main() {
-	env := environment.New(true)
+	env := environment.New()
 
 	config := Config{
 		Port:           2828,
