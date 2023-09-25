@@ -97,6 +97,8 @@ func SetHashedFilenameCachePolicy() ConfigOption {
 
 				if fileNameChecker.MatchString(fileName) {
 					w.Header().Set("Cache-Control", "public,max-age=31536000,immutable")
+					w.Header().Del("Pragma")
+					w.Header().Del("Expires")
 				}
 			},
 		)
