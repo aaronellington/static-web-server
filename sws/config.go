@@ -3,53 +3,102 @@ package sws
 import (
 	"io/fs"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
 
-type configOption func(s *Service)
+type ConfigOption func(c *config)
 
-func EnableSPAMode(defaultFile string) configOption {
-	return func(s *Service) {
-		SetNotFoundFile(defaultFile, http.StatusOK)(s)
-		SetHashedFilenameCachePolicy()(s)
+type config struct {
+	httpFileSystem  http.FileSystem
+	notFoundHandler http.Handler
+	indexFileName   string
+	requestHooks    []requestHook
+}
+
+type requestHook func(
+	w http.ResponseWriter,
+	r *http.Request,
+	file http.File,
+	fileInfo fs.FileInfo,
+)
+
+func SetNotFoundHandler(notFoundHandler http.Handler) ConfigOption {
+	return func(c *config) {
+		c.notFoundHandler = notFoundHandler
 	}
 }
 
-func SetHashedFilenameCachePolicy() configOption {
-	return func(s *Service) {
-		hashChecker := regexp.MustCompile(`(?m)\.[0-9a-z]{8,}\.`)
+func SetNotFoundFile(fileName string, statusCode int) ConfigOption {
+	return func(c *config) {
+		SetNotFoundHandler(
+			http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					file, err := c.httpFileSystem.Open(fileName)
+					if err != nil {
+						http.NotFound(w, r)
 
-		s.requestHooks = append(s.requestHooks, func(w http.ResponseWriter, r *http.Request, file http.File, fileInfo fs.FileInfo) {
-			fileName := strings.ToLower(fileInfo.Name())
+						return
+					}
+					defer file.Close()
 
-			if hashChecker.MatchString(fileName) {
-				w.Header().Set("Cache-Control", "public,max-age=31536000,immutable")
-			} else {
-				w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+					fileInfo, err := file.Stat()
+					if err != nil {
+						http.NotFound(w, r)
+
+						return
+					}
+
+					c.serveFile(w, r, file, fileInfo, statusCode)
+				},
+			),
+		)(c)
+	}
+}
+
+func SetIndexFileName(indexFileName string) ConfigOption {
+	return func(c *config) {
+		c.indexFileName = indexFileName
+	}
+}
+
+func SetCSP(csp ContentSecurityPolicy) ConfigOption {
+	return func(c *config) {
+		cspString := csp.String()
+		if cspString == "" {
+			return
+		}
+
+		c.requestHooks = append(c.requestHooks, func(w http.ResponseWriter, r *http.Request, file http.File, fileInfo fs.FileInfo) {
+			fileExtension := strings.ToLower(filepath.Ext(fileInfo.Name()))
+
+			if !strings.HasPrefix(fileExtension, ".htm") {
+				return
 			}
+
+			if cspString := cspString; cspString == "" {
+				return
+			}
+
+			w.Header().Set("Content-Security-Policy", cspString)
 		})
 	}
 }
 
-func SetNotFoundFile(notFoundFile string, statusCode int) configOption {
-	return func(s *Service) {
-		s.notFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			file, err := s.httpFileSystem.Open(notFoundFile)
-			if err != nil {
-				http.NotFound(w, r)
+func SetHashedFilenameCachePolicy() ConfigOption {
+	fileNameChecker := regexp.MustCompile(`(?m)\.[0-9a-z]{8,}\.`)
 
-				return
-			}
+	return func(c *config) {
+		c.requestHooks = append(
+			c.requestHooks,
+			func(w http.ResponseWriter, r *http.Request, file http.File, fileInfo fs.FileInfo) {
+				fileName := strings.ToLower(fileInfo.Name())
 
-			fileStats, err := file.Stat()
-			if err != nil {
-				http.NotFound(w, r)
-
-				return
-			}
-
-			s.serveFile(w, r, file, fileStats, statusCode)
-		})
+				if fileNameChecker.MatchString(fileName) {
+					w.Header().Set("Cache-Control", "public,max-age=31536000,immutable")
+				}
+			},
+		)
 	}
 }
