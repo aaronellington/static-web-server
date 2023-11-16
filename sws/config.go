@@ -87,7 +87,7 @@ func SetCSP(csp ContentSecurityPolicy) ConfigOption {
 }
 
 func SetHashedFilenameCachePolicy() ConfigOption {
-	fileNameChecker := regexp.MustCompile(`(?m)\.[0-9a-z]{8,}\.`)
+	fileNameChecker := regexp.MustCompile(`(?m)\.[0-9a-z]{7,}\.`)
 
 	return func(c *config) {
 		c.requestHooks = append(
