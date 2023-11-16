@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -87,15 +86,11 @@ func SetCSP(csp ContentSecurityPolicy) ConfigOption {
 }
 
 func SetHashedFilenameCachePolicy() ConfigOption {
-	fileNameChecker := regexp.MustCompile(`(?m)\.[0-9a-z]{7,}\.`)
-
 	return func(c *config) {
 		c.requestHooks = append(
 			c.requestHooks,
 			func(w http.ResponseWriter, r *http.Request, file http.File, fileInfo fs.FileInfo) {
-				fileName := strings.ToLower(fileInfo.Name())
-
-				if fileNameChecker.MatchString(fileName) {
+				if strings.HasPrefix(r.URL.Path, "/assets/") {
 					w.Header().Set("Cache-Control", "public,max-age=31536000,immutable")
 					w.Header().Del("Pragma")
 					w.Header().Del("Expires")
