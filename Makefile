@@ -62,8 +62,8 @@ docs-go:
 
 ## Build the Docker image
 docker: clean
-	docker build -t aaronellington/static-web-server .
+	docker build -t ghcr.io/aaronellington/static-web-server:latest .
 
 ## Build the Docker image
 docker-publish: clean docker
-	docker push aaronellington/static-web-server
+	docker push ghcr.io/aaronellington/static-web-server:latest
